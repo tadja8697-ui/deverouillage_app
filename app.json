@@ -1,4 +1,5 @@
 {
   "name": "deverouillage_app",
-  "displayName": "deverouillage_app"
+  "displayName": "deverouillage_app",
+  "icon": "./assets/icon.png"
 }

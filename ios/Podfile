@@ -1,9 +1,29 @@
-# Resolve react_native_pods.rb with node to allow for hoisting
+# Podfile patché pour fonctionner sur Linux (sans xcodebuild)
 require Pod::Executable.execute_command('node', ['-p',
-  'require.resolve(
-    "react-native/scripts/react_native_pods.rb",
+  'require.resolve("react-native/scripts/react_native_pods",
     {paths: [process.argv[1]]},
   )', __dir__]).strip
+
+# Simuler la valeur que xcodebuild aurait retournée
+# Sur macOS, use_react_native! appelle xcodebuild pour détecter la version du SDK
+# On la fige ici manuellement pour éviter l'appel système
+ENV['RCT_SKIP_XCODEBUILD'] = '1'
+
+# Patch : on redéfinit la méthode qui appelle xcodebuild
+module Pod
+  module Executable
+    class << self
+      alias_method :original_execute_command, :execute_command
+      def execute_command(executable, arguments, raise_on_failure = true)
+        if executable == 'xcodebuild'
+          # Retourne une valeur factice compatible
+          return ''
+        end
+        original_execute_command(executable, arguments, raise_on_failure)
+      end
+    end
+  end
+end
 
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
@@ -19,7 +39,9 @@ target 'deverouillage_app' do
 
   use_react_native!(
     :path => config[:reactNativePath],
-    # An absolute path to your application root.
+    # Désactiver les appels xcodebuild pour la détection Hermes
+    :hermes_enabled => false,
+    # Empêcher la détection automatique de la version iOS
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
@@ -27,8 +49,7 @@ target 'deverouillage_app' do
     react_native_post_install(
       installer,
       config[:reactNativePath],
-      :mac_catalyst_enabled => false,
-      # :ccache_enabled => true
+      :mac_catalyst_enabled => false
     )
   end
 end
